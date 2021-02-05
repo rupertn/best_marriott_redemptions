@@ -132,7 +132,7 @@ def estimate_confidence(unique_nights):
 
 df['confidence'] = df['num_dates'].apply(lambda x: estimate_confidence(x))
 
-df_out = df[['search_city', 'name', 'city_y', 'brand', 'category', 'standard_points', 'value', 'confidence']]
+df_out = df[['name', 'search_city', 'city_y', 'brand', 'category', 'standard_points', 'value', 'confidence']]
 
 # Calculating average redemption value across all hotels
 redemption_values = df_out['value'].to_list()
@@ -141,8 +141,8 @@ print(np.mean(redemption_values))
 # Dropping hotels with significant outliers
 df_out = df_out[df_out['name'] != 'Chicago Marriott Schaumburg']
 
-df_out[['category', 'standard_points']] = df[['category', 'standard_points']].astype(int)
 print(df_out.info())
+df_out[['category', 'standard_points']] = df[['category', 'standard_points']].astype(int)
 
 df_out.columns = ['Hotel', 'Region', 'City/Town', 'Brand', 'Category', 'Standard Points', 'Average Value (cpp)',
                   'Confidence']
