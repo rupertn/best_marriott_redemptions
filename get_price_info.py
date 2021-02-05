@@ -23,7 +23,7 @@ def get_access_token():
     return token['access_token'], token_expiry
 
 
-# Function to parse API response into the desired table format
+# Function to parse Amadeus Hotel Search API response into the desired table format
 def parse_response(file, check_in, iata_code):
     if 'errors' in file:
         print(check_in, iata_code, file['errors'][0]['status'], file['errors'][0]['title'])
