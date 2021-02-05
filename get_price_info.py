@@ -1,8 +1,7 @@
 import pandas as pd
 import requests
 from faker import Faker
-from datetime import date
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import time
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
@@ -68,7 +67,7 @@ def parse_response(file, check_in, iata_code):
                 table.append(row)
 
 
-# Function to perform API request for a specific date and city
+# Function to perform API request for a specific date, city, and brand
 def perform_request():
     params = {'cityCode': airport,
               'checkInDate': arr_date,
@@ -103,11 +102,11 @@ def export_data(full_table):
 
 # Creating a list of random dates to retrieve hotel prices for.
 fake = Faker()
-num_dates = 5
+num_dates = 25
 start_date, end_date = date(2021, 5, 1), date(2021, 12, 31)
 random_dates = [fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d') for num in
                 range(num_dates)]
-# print('Random dates selected: ', random_dates)
+print('Random dates selected: ', random_dates)
 
 time.sleep(20)
 
