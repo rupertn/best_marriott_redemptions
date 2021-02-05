@@ -23,19 +23,24 @@ search_cities = {'OGG': 'Maui, Hawaii', 'KOA': 'Big Island, Hawaii', 'HNL': 'Oah
                  'YYC': 'Calgary, Alberta', 'YVR': 'Vancouver, British Columbia', 'YYZ': 'Toronto, Ontario',
                  'YUL': 'Montreal, Quebec', 'YOW': 'Ottawa, Ontario', 'YEG': 'Edmonton, Alberta'}
 
-# Creating
+# Creating a column showing the city name used to search for the rate data for each hotel
 rates['search_city'] = rates['search_code'].map(search_cities)
 
+# Converting all pricing data points in CAD to USD
+rates['adj_total'] = rates.apply(lambda row: 0.78 * row['total'] if row['currency'] == 'CAD' else row['total'], axis=1)
 
-# Format city names in the rates dataframe
+
 def format_name(name):
     words = name.replace('-', ' ').split()
-    words = [word if (word == 'by') | (word == 'JW') | (word == 'AC') | (word == 'at') | (word == 'US') |
-                     (word == 'BY') else word.capitalize() for word in words]
+    words = [word if (word == 'by') | (word == 'JW') | (word == 'at') | (word == 'US') else word.capitalize()
+             for word in words]
     return ' '.join(words)
 
 
 rates['city'] = rates['city'].apply(lambda x: format_name(x))
+
+# Dropping hotels with no phone number.
+hotels = hotels[hotels['phone_number'].notnull()]
 
 
 # Function to remove all formatting from a phone number (i.e. only digits remain)
@@ -47,28 +52,26 @@ def format_phone(num):
         return phone
 
 
-# Dropping hotels with no phone number.
-hotels = hotels[hotels['phone_number'].notnull()]
-
-# Applying phone number formatting to each dataframe
 hotels['formatted_phone'] = hotels['phone_number'].apply(lambda x: format_phone(x))
 rates['formatted_phone'] = rates['phone_number'].apply(lambda x: format_phone(x))
 
-
-rates['adj_total'] = rates.apply(lambda row: 0.78 * row['total'] if row['currency'] == 'CAD' else row['total'], axis=1)
-
+# Finding the cheapest flexible rate on each date for each hotel
 min_rates = rates.groupby(['search_city', 'city', 'chain_code', 'formatted_phone', 'check_in_date'])['adj_total'].min()\
     .reset_index()
+
+# Grouping cheapest flexible rates by hotel to test for outliers
 min_desc = min_rates.groupby(['chain_code', 'formatted_phone'])['adj_total'].describe()\
     .drop(columns=['count', 'min', 'max', '50%']).reset_index()
 
-
+# Calculating min and max for the boxplot
 min_desc['w_min'] = min_desc['mean'] - (1.5 * (min_desc['75%'] - min_desc['25%']))
 min_desc['w_max'] = min_desc['mean'] + (1.5 * (min_desc['75%'] - min_desc['25%']))
 
 adj_min = min_desc.merge(min_rates, how='left', on=['chain_code', 'formatted_phone'])
 
 
+# Only considering upper bound outliers as low-priced outliers should always be redeemable with points
+# Method 1: Boxplot method
 def is_outlier_m1(w_max, total):
     if total > w_max:
         return 1
@@ -76,9 +79,7 @@ def is_outlier_m1(w_max, total):
         return 0
 
 
-adj_min['is_outlier_m1'] = adj_min.apply(lambda row: is_outlier_m1(row['w_max'], row['adj_total']), axis=1)
-
-
+# Method 2: Standard deviations
 def is_outlier_m2(mean, std, total):
     if total > ((3 * std) + mean):
         return 1
@@ -86,9 +87,10 @@ def is_outlier_m2(mean, std, total):
         return 0
 
 
+adj_min['is_outlier_m1'] = adj_min.apply(lambda row: is_outlier_m1(row['w_max'], row['adj_total']), axis=1)
 adj_min['is_outlier_m2'] = adj_min.apply(lambda row: is_outlier_m2(row['mean'], row['std'], row['adj_total']), axis=1)
 
-
+# Dropping row only if BOTH outliers detection methods state the row is an outlier
 adj_min = adj_min[(adj_min['is_outlier_m1'] == 0) | (adj_min['is_outlier_m2'] == 0)]
 
 
@@ -106,6 +108,7 @@ merged_groups = num_dates.merge(avg_min_rate, how='inner', on=['chain_code', 'fo
 # Joining average rate data to hotel data
 df = merged_groups.merge(hotels, how='left', on=['chain_code', 'formatted_phone'])
 
+# Calculating the average redemption value in cents per points for each hotel
 df['value'] = (df['avg_min_rate']*100/df['standard_points']).round(decimals=2)
 
 df = df.sort_values('value', ascending=False)
@@ -117,7 +120,7 @@ join_duplicates = df.loc[df.duplicated(subset=['chain_code', 'formatted_phone'],
 df = df.dropna(subset=['value'])
 
 
-# Function to estimate confidence in the average value prediction
+# Function to estimate confidence in the average redemption value result
 def estimate_confidence(unique_nights):
     if (unique_nights >= 20) & (unique_nights <= 25):
         return 'High'
@@ -131,7 +134,9 @@ df['confidence'] = df['num_dates'].apply(lambda x: estimate_confidence(x))
 
 df_out = df[['search_city', 'name', 'city_y', 'brand', 'category', 'standard_points', 'value', 'confidence']]
 
+# Calculating average redemption value across all hotels
 redemption_values = df_out['value'].to_list()
+print(np.mean(redemption_values))
 
 # Dropping hotels with significant outliers
 df_out = df_out[df_out['name'] != 'Chicago Marriott Schaumburg']
@@ -139,8 +144,8 @@ df_out = df_out[df_out['name'] != 'Chicago Marriott Schaumburg']
 df_out[['category', 'standard_points']] = df[['category', 'standard_points']].astype(int)
 print(df_out.info())
 
-df_out.columns = ['Metropolitan Area', 'Hotel', 'City/Town/Area', 'Brand', 'Bonvoy Category',
-                  'Standard Points Required', 'Average Redemption Value (cents per point)', 'Estimate Confidence']
+df_out.columns = ['Hotel', 'Region', 'City/Town', 'Brand', 'Category', 'Standard Points', 'Average Value (cpp)',
+                  'Confidence']
 
-print(np.mean(redemption_values))
-# df_out.head(20).to_html('value_sample.html', index=False)
+# Exporting formatted table to html to add to the website pointsplanner.ca
+df_out.to_html('formatted_table.html', index=False)
