@@ -1,4 +1,4 @@
-# Which North American Marriott Properties Offer the Best Points Redemption Value?
+# Which North American Marriott Properties Offer the Best Average Points Redemption Value?
 
 The purpose of this project was to help members of Marriott Bonvoy, the loyalty program of the Marriott Hotel chain, extract the most value from their loyalty points when redeeming them for hotel stays. In this context, points value is defined as the cost of purchasing a hotel room with cash, divided by the number of loyalty points required to redeem for the same room. A more in-depth explanation of this concept, and the project as a whole, is available at [pointsplanner.ca](pointsplanner.ca), a website I built to showcase the results of this analysis.
 
